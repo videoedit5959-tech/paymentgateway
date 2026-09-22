@@ -23,6 +23,10 @@ export function validateProductionEnvironment(): EnvValidationResult {
     'ENCRYPTION_KEY',
   ];
 
+  if (process.env.VERCEL === '1') {
+    requiredInProd.push('CRON_SECRET');
+  }
+
   const insecureDefaults = [
     'paysync_jwt_access_secret_super_secure_key_min_32_chars',
     'paysync_jwt_refresh_secret_super_secure_key_min_32_chars',

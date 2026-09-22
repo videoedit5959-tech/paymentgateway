@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  gateway-staging:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paysync_gateway_staging
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.staging
+    environment:
+      - NODE_ENV=staging
+      - PORT=3000
+    depends_on:
+      - mongo-staging
+    networks:
+      - paysync-staging-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health/live || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  mongo-staging:
+    image: mongo:6.0
+    container_name: paysync_mongo_staging
+    restart: unless-stopped
+    volumes:
+      - mongo_staging_data:/data/db
+    networks:
+      - paysync-staging-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  nginx-staging:
+    image: nginx:alpine
+    container_name: paysync_nginx_staging
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - gateway-staging
+    networks:
+      - paysync-staging-network
+
+networks:
+  paysync-staging-network:
+    driver: bridge
+
+volumes:
+  mongo_staging_data:

@@ -106,7 +106,37 @@ androidReleaseRouter.get('/:id/download', async (req, res: Response) => {
       }
     }
 
-    // Resolve physical APK file on disk
+    // Increment download count asynchronously
+    Repository.incrementAndroidReleaseDownloadCount(release.id).catch((e) => {
+      console.error('Failed to increment download count:', e);
+    });
+
+    // Try streaming from MongoDB GridFS bucket first (preferred for serverless execution like Vercel)
+    const streamedFromGridFS = await AndroidReleaseService.streamApkFromGridFS(release.fileName, res, release.sha256);
+    if (streamedFromGridFS) {
+      // Record audit log
+      Repository.createAuditLog({
+        action: 'ANDROID_RELEASE_DOWNLOAD',
+        resourceType: 'ANDROID_RELEASE',
+        resourceId: release.id,
+        merchantId: (req as any).merchantId,
+        actorId: (req as any).user?.id || 'ANONYMOUS',
+        actorEmail: (req as any).user?.email || 'anonymous@public',
+        actorRole: ((req as any).user?.role || 'ANONYMOUS') as any,
+        ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1',
+        metadata: {
+          version: release.version,
+          versionCode: release.versionCode,
+          fileName: release.fileName,
+          fileSize: release.fileSize,
+          sha256: release.sha256,
+          storage: 'MongoDB_GridFS',
+        },
+      }).catch(() => {});
+      return;
+    }
+
+    // Resolve physical APK file on disk as fallback
     let safePath = AndroidReleaseService.resolveSafeApkPath(release.fileName);
     if (!safePath) {
       // Re-generate if missing
@@ -122,11 +152,6 @@ androidReleaseRouter.get('/:id/download', async (req, res: Response) => {
 
     // Compute live SHA-256 to guarantee binary integrity
     const liveSha256 = AndroidReleaseService.calculateFileSha256(safePath);
-
-    // Increment download count asynchronously
-    Repository.incrementAndroidReleaseDownloadCount(release.id).catch((e) => {
-      console.error('Failed to increment download count:', e);
-    });
 
     // Record audit log
     Repository.createAuditLog({
@@ -144,6 +169,7 @@ androidReleaseRouter.get('/:id/download', async (req, res: Response) => {
         fileName: release.fileName,
         fileSize: stat.size,
         sha256: liveSha256,
+        storage: 'Local_Filesystem',
       },
     }).catch(() => {});
 
@@ -210,6 +236,14 @@ androidReleaseRouter.post('/', authenticateJwt, requireRole('SUPER_ADMIN', 'ADMI
 
     const stats = fs.statSync(filePath);
     const sha256 = AndroidReleaseService.calculateFileSha256(filePath);
+
+    // Save to MongoDB GridFS for persistent serverless distribution
+    const zipBuffer = zip.toBuffer();
+    await AndroidReleaseService.uploadApkToGridFS(fileName, zipBuffer, {
+      version,
+      versionCode: Number(versionCode),
+      sha256,
+    });
 
     const release = await Repository.createAndroidRelease({
       version,

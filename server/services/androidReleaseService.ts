@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import AdmZip from 'adm-zip';
+import mongoose from 'mongoose';
 
 export interface ApkMetadata {
   fileName: string;
@@ -18,6 +19,72 @@ export interface ApkMetadata {
 
 export class AndroidReleaseService {
   private static readonly STORAGE_DIR = path.join(process.cwd(), 'public', 'downloads', 'apk');
+
+  /**
+   * Retrieves Mongoose GridFS bucket for persistent APK binary storage in serverless environments
+   */
+  public static getGridFSBucket(): mongoose.mongo.GridFSBucket | null {
+    if (mongoose.connection && mongoose.connection.readyState === 1 && mongoose.connection.db) {
+      return new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+        bucketName: 'apk_files',
+      });
+    }
+    return null;
+  }
+
+  /**
+   * Uploads APK binary buffer into MongoDB GridFS bucket
+   */
+  public static async uploadApkToGridFS(fileName: string, buffer: Buffer, metadata: any = {}): Promise<void> {
+    const bucket = this.getGridFSBucket();
+    if (!bucket) return;
+
+    try {
+      const existing = await bucket.find({ filename: fileName }).toArray();
+      if (existing && existing.length > 0) {
+        for (const file of existing) {
+          await bucket.delete(file._id);
+        }
+      }
+
+      const uploadStream = bucket.openUploadStream(fileName, { metadata });
+      uploadStream.end(buffer);
+      await new Promise<void>((resolve, reject) => {
+        uploadStream.on('finish', () => resolve());
+        uploadStream.on('error', (err) => reject(err));
+      });
+      console.log(`✅ Uploaded APK '${fileName}' to MongoDB GridFS (${buffer.length} bytes).`);
+    } catch (err: any) {
+      console.warn(`⚠️  GridFS storage upload warning for ${fileName}:`, err.message);
+    }
+  }
+
+  /**
+   * Streams APK from MongoDB GridFS if present
+   */
+  public static async streamApkFromGridFS(fileName: string, res: any, sha256: string): Promise<boolean> {
+    const bucket = this.getGridFSBucket();
+    if (!bucket) return false;
+
+    try {
+      const files = await bucket.find({ filename: fileName }).toArray();
+      if (!files || files.length === 0) return false;
+
+      const file = files[0];
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', file.length);
+      res.setHeader('X-Checksum-SHA256', sha256);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+
+      const downloadStream = bucket.openDownloadStreamByName(fileName);
+      downloadStream.pipe(res);
+      return true;
+    } catch (err: any) {
+      console.warn(`⚠️  GridFS stream error for ${fileName}:`, err.message);
+      return false;
+    }
+  }
 
   /**
    * Initializes storage directory
@@ -181,6 +248,12 @@ export class AndroidReleaseService {
     const v120Stats = fs.statSync(v120Path);
     const v120Sha256 = this.calculateFileSha256(v120Path);
 
+    // Sync v1.2.0 to GridFS asynchronously
+    if (fs.existsSync(v120Path)) {
+      const buf120 = fs.readFileSync(v120Path);
+      this.uploadApkToGridFS(v120Name, buf120, { version: '1.2.0', sha256: v120Sha256 }).catch(() => {});
+    }
+
     // 2. Build v1.0.0 (Prior Release)
     const v100Name = 'PaySync-MFS-Collector-v1.0.0.apk';
     const v100Path = path.join(this.STORAGE_DIR, v100Name);
@@ -202,6 +275,12 @@ export class AndroidReleaseService {
 
     const v100Stats = fs.statSync(v100Path);
     const v100Sha256 = this.calculateFileSha256(v100Path);
+
+    // Sync v1.0.0 to GridFS asynchronously
+    if (fs.existsSync(v100Path)) {
+      const buf100 = fs.readFileSync(v100Path);
+      this.uploadApkToGridFS(v100Name, buf100, { version: '1.0.0', sha256: v100Sha256 }).catch(() => {});
+    }
 
     return {
       v120: {
