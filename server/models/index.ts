@@ -914,6 +914,57 @@ const ManualRefundSchema = new Schema<IManualRefundDoc>(
 );
 ManualRefundSchema.index({ merchantId: 1, createdAt: -1 });
 
+// Android Release Schema
+export interface IAndroidReleaseDoc extends Document {
+  version: string;
+  versionCode: number;
+  releaseDate: Date;
+  minimumAndroidVersion: string;
+  targetAndroidVersion: string;
+  fileName: string;
+  fileSize: number;
+  downloadUrl: string;
+  sha256: string;
+  releaseNotes: string;
+  isPublished: boolean;
+  isLatest: boolean;
+  downloadCount: number;
+  architecture: string;
+  minSdk: number;
+  targetSdk: number;
+  permissions: string[];
+  uploadedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const AndroidReleaseSchema = new Schema<IAndroidReleaseDoc>(
+  {
+    version: { type: String, required: true, trim: true, unique: true },
+    versionCode: { type: Number, required: true, index: true },
+    releaseDate: { type: Date, default: Date.now },
+    minimumAndroidVersion: { type: String, default: 'Android 8.0 (API 26)' },
+    targetAndroidVersion: { type: String, default: 'Android 14 (API 34)' },
+    fileName: { type: String, required: true },
+    fileSize: { type: Number, required: true },
+    downloadUrl: { type: String, required: true },
+    sha256: { type: String, required: true, trim: true },
+    releaseNotes: { type: String, default: '' },
+    isPublished: { type: Boolean, default: false, index: true },
+    isLatest: { type: Boolean, default: false, index: true },
+    downloadCount: { type: Number, default: 0 },
+    architecture: { type: String, default: 'Universal (arm64-v8a, armeabi-v7a, x86_64)' },
+    minSdk: { type: Number, default: 26 },
+    targetSdk: { type: Number, default: 34 },
+    permissions: [{ type: String }],
+    uploadedBy: { type: String },
+  },
+  { timestamps: true }
+);
+
+AndroidReleaseSchema.index({ isPublished: 1, isLatest: 1 });
+AndroidReleaseSchema.index({ versionCode: -1 });
+
 // Export Mongoose Models
 export const UserModel = mongoose.models.User || mongoose.model<IUserDoc>('User', UserSchema);
 export const MerchantModel = mongoose.models.Merchant || mongoose.model<IMerchantDoc>('Merchant', MerchantSchema);
@@ -939,3 +990,4 @@ export const MerchantBrandingModel = mongoose.models.MerchantBranding || mongoos
 export const TeamInvitationModel = mongoose.models.TeamInvitation || mongoose.model<ITeamInvitationDoc>('TeamInvitation', TeamInvitationSchema);
 export const SupportTicketModel = mongoose.models.SupportTicket || mongoose.model<ISupportTicketDoc>('SupportTicket', SupportTicketSchema);
 export const ManualRefundModel = mongoose.models.ManualRefund || mongoose.model<IManualRefundDoc>('ManualRefund', ManualRefundSchema);
+export const AndroidReleaseModel = mongoose.models.AndroidRelease || mongoose.model<IAndroidReleaseDoc>('AndroidRelease', AndroidReleaseSchema);

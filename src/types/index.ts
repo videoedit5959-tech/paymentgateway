@@ -429,6 +429,30 @@ export interface IManualRefund {
   updatedAt: string;
 }
 
+export interface IAndroidRelease {
+  id: string;
+  version: string;
+  versionCode: number;
+  releaseDate: string;
+  minimumAndroidVersion: string;
+  targetAndroidVersion: string;
+  fileName: string;
+  fileSize: number;
+  downloadUrl: string;
+  sha256: string;
+  releaseNotes: string;
+  isPublished: boolean;
+  isLatest: boolean;
+  downloadCount: number;
+  architecture: string;
+  minSdk: number;
+  targetSdk: number;
+  permissions: string[];
+  uploadedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ISystemSettings {
   bkashEnabled: boolean;
   nagadEnabled: boolean;

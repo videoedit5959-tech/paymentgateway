@@ -28,11 +28,28 @@ router.post('/', authenticateMerchant, async (req: any, res) => {
       });
     }
 
+    // Verify payment ownership
+    const payment = await Repository.getPaymentById(paymentId);
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'PAYMENT_NOT_FOUND', message: 'Payment session not found' },
+      });
+    }
+
+    const isSuperOrAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.role === 'ADMIN';
+    if (!isSuperOrAdmin && payment.merchantId !== merchantId) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Access denied to this payment session' },
+      });
+    }
+
     const refund = await Repository.createRefund({
       merchantId,
       paymentId,
       amount: Number(amount),
-      provider: provider || 'BKASH',
+      provider: provider || payment.provider || 'BKASH',
       customerPhone,
       reason,
       externalReference,

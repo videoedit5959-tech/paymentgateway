@@ -147,7 +147,16 @@ router.patch('/:id/status', authenticateJwt, async (req: AuthRequest, res: Respo
       return sendError(res, 'INVALID_STATUS', 'Status must be ACTIVE or REVOKED', 400);
     }
 
-    const merchantId = req.merchantId || 'merch_demo_101';
+    const keyDoc = await Repository.getApiKeyById(id);
+    if (!keyDoc) {
+      return sendError(res, 'NOT_FOUND', 'API key not found or access denied.', 404);
+    }
+
+    const isSuperOrAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.role === 'ADMIN';
+    if (!isSuperOrAdmin && keyDoc.merchantId !== req.merchantId) {
+      return sendError(res, 'FORBIDDEN', 'Access denied to this API key resource.', 403);
+    }
+
     const updated = await Repository.updateApiKey(id, { status });
     if (!updated) {
       return sendError(res, 'NOT_FOUND', 'API key not found or access denied.', 404);
@@ -157,7 +166,7 @@ router.patch('/:id/status', authenticateJwt, async (req: AuthRequest, res: Respo
       actorId: req.user?.id || 'merchant',
       actorEmail: req.user?.email || 'merchant',
       actorRole: req.user?.role || 'MERCHANT_OWNER',
-      merchantId,
+      merchantId: keyDoc.merchantId,
       action: `API_KEY_${status}`,
       resourceType: 'API_KEY',
       resourceId: id,

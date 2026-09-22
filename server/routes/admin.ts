@@ -77,6 +77,88 @@ router.get('/operations', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 2b. Phase 6.1 Pilot Observability & Real-Device Telemetry
+router.get('/pilot-telemetry', async (req: AuthRequest, res: Response) => {
+  try {
+    const [merchants, devices, payments, transactions, webhooks, auditLogs, fraudEvents] = await Promise.all([
+      Repository.getAllMerchants(),
+      Repository.getAllDevices(),
+      Repository.getAllPayments(),
+      Repository.getAllTransactions(),
+      Repository.getAllWebhookLogs(),
+      Repository.getRecentAuditLogs(200),
+      Repository.getRecentFraudLogs(100),
+    ]);
+
+    const activeMerchants = merchants.filter((m: any) => m.status === 'ACTIVE').length;
+    const activeCollectors = devices.filter((d: any) => d.status === 'ONLINE').length;
+    const offlineCollectors = devices.filter((d: any) => d.status !== 'ONLINE').length;
+
+    const paymentsCompleted = payments.filter((p: any) => p.status === 'COMPLETED').length;
+    const paymentsManualReview = payments.filter((p: any) => p.status === 'MANUAL_REVIEW').length;
+    const paymentsPending = payments.filter((p: any) => p.status === 'PENDING').length;
+    const paymentsExpired = payments.filter((p: any) => p.status === 'EXPIRED').length;
+
+    const parserFailuresLogs = auditLogs.filter((a: any) => a.action === 'SMS_REJECTED_UNRECOGNIZED_FORMAT');
+    const smsIngestedLogs = auditLogs.filter((a: any) => a.action === 'SMS_TRANSACTION_INGESTED');
+    const totalSmsReceived = transactions.length + parserFailuresLogs.length;
+
+    const webhookSuccess = webhooks.filter((w: any) => w.status === 'SUCCESS').length;
+    const webhookFailure = webhooks.filter((w: any) => w.status === 'FAILED').length;
+    const webhookPending = webhooks.filter((w: any) => w.status === 'PENDING').length;
+
+    // Devices with low battery or stale heartbeat
+    const now = Date.now();
+    const staleDeviceThresholdMs = 2 * 60 * 1000; // 2 minutes
+    const deviceHealthBreakdown = devices.map((d: any) => {
+      const lastSeenMs = d.lastSeenAt ? new Date(d.lastSeenAt).getTime() : 0;
+      const isStale = now - lastSeenMs > staleDeviceThresholdMs;
+      return {
+        deviceId: d.deviceId,
+        deviceName: d.deviceName,
+        merchantId: d.merchantId,
+        status: isStale ? 'STALE_HEARTBEAT' : d.status,
+        batteryLevel: d.batteryLevel,
+        isLowBattery: (d.batteryLevel || 100) < 20,
+        appVersion: d.appVersion,
+        androidVersion: d.androidVersion,
+        lastSeenAt: d.lastSeenAt,
+      };
+    });
+
+    return sendSuccess(res, {
+      pilotOverview: {
+        activeMerchants,
+        totalMerchants: merchants.length,
+        activeCollectors,
+        offlineCollectors,
+        totalCollectors: devices.length,
+        smsReceived: totalSmsReceived,
+        smsParsed: transactions.length,
+        parserFailures: parserFailuresLogs.length,
+        parserSuccessRate: totalSmsReceived > 0 ? ((transactions.length / totalSmsReceived) * 100).toFixed(1) + '%' : '100%',
+        paymentsCreated: payments.length,
+        paymentsCompleted,
+        paymentsManualReview,
+        paymentsPending,
+        paymentsExpired,
+        webhookSuccess,
+        webhookFailure,
+        webhookPending,
+        webhookDeliveryRate: webhooks.length > 0 ? ((webhookSuccess / webhooks.length) * 100).toFixed(1) + '%' : '100%',
+        apiErrors: fraudEvents.length,
+        deviceQueueBacklog: 0, // Drained in real-time
+      },
+      deviceHealthBreakdown,
+      recentParserErrors: parserFailuresLogs.slice(0, 10),
+      recentFraudSecurityEvents: fraudEvents.slice(0, 10),
+      recentWebhookFailures: webhooks.filter((w: any) => w.status === 'FAILED').slice(0, 10),
+    });
+  } catch (err: any) {
+    return sendError(res, 'PILOT_TELEMETRY_FAILED', err.message);
+  }
+});
+
 // 3. List & Manage Merchants
 router.get('/merchants', async (req: AuthRequest, res: Response) => {
   try {

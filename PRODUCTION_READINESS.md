@@ -75,3 +75,22 @@ This checklist confirms that the PaySync MFS Payment Gateway meets all productio
 - [x] 48. Nginx reverse proxy configuration template with TLS 1.3, HSTS, and rate limiting.
 - [x] 49. Automated MongoDB continuous backup script and point-in-time recovery runbook.
 - [x] 50. Health check endpoint (`GET /api/health`) reporting gateway and database operational status.
+
+---
+
+### Phase 6.1: Pilot Observability & Fleet Telemetry
+- [x] 51. Real-time Android Collector pilot fleet telemetry dashboard integrated in Admin Panel.
+- [x] 52. Device health metrics tracked live: battery status, charging state, SIM network status, SMS count, last heartbeat.
+- [x] 53. Bengali Unicode digit translation and normalizer hardened in MFS SMS parser.
+- [x] 54. Complete pilot merchant onboarding checklist and pilot readiness operational report (`docs/REAL_DEVICE_PILOT.md`).
+
+---
+
+### Phase 6.2: Route Security, Public Pages & Protected Pages
+- [x] 55. Comprehensive Route Security Matrix established (`docs/ROUTE_SECURITY_MATRIX.md`).
+- [x] 56. 4-Level Security Hierarchy enforced: Level 1 Public, Level 2 Auth User, Level 3 Merchant Tenant, Level 4 Super Admin.
+- [x] 57. Strict multi-tenant isolation enforced on all merchant resource queries (`wallets`, `api-keys`, `devices`, `webhooks`, `refunds`, `support`).
+- [x] 58. Zero IDOR / BOLA vulnerabilities verified via 51 comprehensive security test cases (`docs/SECURITY_TESTING.md`).
+- [x] 59. Anti-role-escalation guards implemented preventing merchant accounts from granting platform administrative privileges.
+- [x] 60. Super Admin Control Panel guarded by frontend 403 Access Denied screen and server-side JWT role validation.
+

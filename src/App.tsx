@@ -5,6 +5,7 @@ import { MerchantDashboard } from './components/MerchantDashboard';
 import { AdminPanel } from './components/AdminPanel';
 import { CheckoutView } from './components/CheckoutView';
 import { AndroidCodeViewer } from './components/AndroidCodeViewer';
+import { AndroidAppReleaseCenter } from './components/AndroidAppReleaseCenter';
 import { ApiDocs } from './components/ApiDocs';
 import { SmsSimulatorModal } from './components/SmsSimulatorModal';
 import { AuthModal } from './components/AuthModal';
@@ -151,7 +152,7 @@ export default function App() {
           />
         )}
 
-        {currentView === 'admin' && <AdminPanel />}
+        {currentView === 'admin' && <AdminPanel currentUser={currentUser} />}
 
         {currentView === 'checkout-demo' && (
           <CheckoutView
@@ -161,7 +162,13 @@ export default function App() {
           />
         )}
 
-        {currentView === 'android-code' && <AndroidCodeViewer />}
+        {(currentView === 'android-code' || currentView === 'android-app') && (
+          <AndroidAppReleaseCenter
+            currentUser={currentUser}
+            currentMerchant={currentMerchant}
+            onOpenSimulator={() => setSimulatorOpen(true)}
+          />
+        )}
 
         {currentView === 'docs' && <ApiDocs />}
       </main>

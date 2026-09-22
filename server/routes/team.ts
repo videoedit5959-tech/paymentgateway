@@ -23,11 +23,28 @@ router.get('/', authenticateMerchant, async (req: any, res) => {
 // POST /api/team/invite - Send staff invitation
 router.post('/invite', authenticateMerchant, async (req: any, res) => {
   try {
+    const userRole = req.user.role;
+    const allowedRoles = ['MERCHANT_OWNER', 'MERCHANT_ADMIN', 'SUPER_ADMIN', 'ADMIN'];
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to invite team members.' },
+      });
+    }
+
     const merchantId = req.user.merchantId;
     const { email, role } = req.body;
 
     if (!email) {
       return res.status(400).json({ success: false, error: { code: 'MISSING_EMAIL', message: 'Email is required' } });
+    }
+
+    // Prevent privilege escalation: Cannot invite as SUPER_ADMIN or ADMIN
+    if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'INVALID_ROLE_ESCALATION', message: 'Cannot assign platform administrative roles.' },
+      });
     }
 
     const invitation = await TeamService.inviteMember(
@@ -50,6 +67,15 @@ router.post('/invite', authenticateMerchant, async (req: any, res) => {
 // POST /api/team/invitations/:id/revoke - Revoke invitation
 router.post('/invitations/:id/revoke', authenticateMerchant, async (req: any, res) => {
   try {
+    const userRole = req.user.role;
+    const allowedRoles = ['MERCHANT_OWNER', 'MERCHANT_ADMIN', 'SUPER_ADMIN', 'ADMIN'];
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to manage team invitations.' },
+      });
+    }
+
     const merchantId = req.user.merchantId;
     await TeamService.revokeInvitation(req.params.id, merchantId);
     res.json({ success: true, message: 'Invitation revoked successfully' });

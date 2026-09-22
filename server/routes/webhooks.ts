@@ -123,4 +123,33 @@ router.post('/:id/retry', authenticateJwt, async (req: AuthRequest, res: Respons
   }
 });
 
+// 5. Super Admin / Operations Webhook Queue & Failure Inspector
+router.get('/admin/all', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const isSuperOrAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.role === 'ADMIN';
+    if (!isSuperOrAdmin) {
+      return sendError(res, 'FORBIDDEN', 'Super Admin or Admin privileges required.', 403);
+    }
+
+    const { status, merchantId, limit } = req.query;
+    const allWebhooks = await Repository.getWebhookLogsByMerchant(merchantId ? String(merchantId) : '');
+    let filtered = allWebhooks;
+
+    if (status) {
+      filtered = filtered.filter((w) => w.status === String(status).toUpperCase());
+    }
+
+    const maxItems = Math.min(Number(limit) || 100, 200);
+    const results = filtered.slice(0, maxItems);
+
+    return sendSuccess(res, {
+      total: filtered.length,
+      limit: maxItems,
+      webhooks: results,
+    });
+  } catch (err: any) {
+    return sendError(res, 'FETCH_FAILED', err.message, 500);
+  }
+});
+
 export default router;

@@ -13,16 +13,22 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - MONGODB_URI=mongodb://mongo:27017/paysync
-      - REDIS_URL=redis://redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-paysync_jwt_access_secret_super_secure_key_min_32_chars}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-paysync_jwt_refresh_secret_super_secure_key_min_32_chars}
       - WEBHOOK_SIGNING_SECRET=${WEBHOOK_SIGNING_SECRET:-paysync_wh_secret_key_super_secure_32_chars}
+      - DEVICE_AUTH_SECRET=${DEVICE_AUTH_SECRET:-paysync_device_pairing_and_auth_secret}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-paysync_aes256_encryption_key_32bytes}
       - PAYMENT_EXPIRY_MINUTES=15
     depends_on:
       - mongo
-      - redis
     networks:
       - paysync-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health/live || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   mongo:
     image: mongo:6.0
@@ -32,15 +38,11 @@ services:
       - mongo_data:/data/db
     networks:
       - paysync-network
-
-  redis:
-    image: redis:7.0-alpine
-    container_name: paysync_redis
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    networks:
-      - paysync-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
 
   nginx:
     image: nginx:alpine
@@ -63,4 +65,4 @@ networks:
 
 volumes:
   mongo_data:
-  redis_data:
+
