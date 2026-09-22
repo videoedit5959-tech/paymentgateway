@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paysync_gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongo:27017/paysync
+      - REDIS_URL=redis://redis:6379
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-paysync_jwt_access_secret_super_secure_key_min_32_chars}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-paysync_jwt_refresh_secret_super_secure_key_min_32_chars}
+      - WEBHOOK_SIGNING_SECRET=${WEBHOOK_SIGNING_SECRET:-paysync_wh_secret_key_super_secure_32_chars}
+      - PAYMENT_EXPIRY_MINUTES=15
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - paysync-network
+
+  mongo:
+    image: mongo:6.0
+    container_name: paysync_mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - paysync-network
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: paysync_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - paysync-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: paysync_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - gateway
+    networks:
+      - paysync-network
+
+networks:
+  paysync-network:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  redis_data:

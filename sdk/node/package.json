@@ -1,0 +1,23 @@
+{
+  "name": "@paysync/node-sdk",
+  "version": "1.0.0",
+  "description": "Official Node.js / TypeScript SDK for PaySync MFS Payment Gateway",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "paysync",
+    "bkash",
+    "nagad",
+    "rocket",
+    "upay",
+    "payment",
+    "gateway",
+    "bangladesh",
+    "mfs"
+  ],
+  "author": "PaySync Engineering",
+  "license": "MIT"
+}

@@ -1,0 +1,17 @@
+{
+    "name": "paysync/paysync-php",
+    "description": "Official PHP SDK for PaySync MFS Payment Gateway",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "PaySync\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=7.4",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-hash": "*"
+    }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "PaySync MFS Gateway",
+  "description": "Non-API SMS-based bKash and Nagad payment verification gateway with Android collector app, merchant portal, and verification engine",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

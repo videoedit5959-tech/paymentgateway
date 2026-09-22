@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PaySync MFS Gateway</title>
+    <meta name="description" content="Non-API SMS-based bKash and Nagad payment verification gateway with Android collector app, merchant portal, and verification engine." />
+    <meta property="og:title" content="PaySync MFS Gateway" />
+    <meta property="og:description" content="Non-API SMS-based bKash and Nagad payment verification gateway with Android collector app, merchant portal, and verification engine." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function() {
+        try {
+          var target = typeof window !== 'undefined' ? window : typeof globalThis !== 'undefined' ? globalThis : self;
+          if (target && target.fetch) {
+            var _currentFetch = target.fetch.bind(target);
+            Object.defineProperty(target, 'fetch', {
+              get: function() {
+                return _currentFetch;
+              },
+              set: function(fn) {
+                _currentFetch = fn;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (e) {
+          // Ignore if environment forbids redefinition
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

@@ -1,0 +1,282 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PaySync MFS Payment Gateway API",
+    "description": "Production-grade automated MFS payment gateway API for bKash, Nagad, Rocket, and Upay in Bangladesh.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "PaySync Developer Support",
+      "url": "https://paysync.io/support",
+      "email": "support@paysync.io"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "PaySync v1 API Root"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "ApiSecretAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Secret"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "example": "Ayesha Siddiqua" },
+          "email": { "type": "string", "format": "email", "example": "ayesha@example.com" },
+          "phone": { "type": "string", "example": "01712345678" }
+        }
+      },
+      "CreatePaymentRequest": {
+        "type": "object",
+        "required": ["amount", "orderId"],
+        "properties": {
+          "amount": { "type": "number", "example": 850 },
+          "currency": { "type": "string", "enum": ["BDT", "USD"], "default": "BDT" },
+          "orderId": { "type": "string", "example": "ORDER-98210" },
+          "description": { "type": "string", "example": "Payment for Cart #9821" },
+          "customer": { "$ref": "#/components/schemas/Customer" },
+          "successUrl": { "type": "string", "format": "uri" },
+          "cancelUrl": { "type": "string", "format": "uri" },
+          "webhookUrl": { "type": "string", "format": "uri" },
+          "metadata": { "type": "object" }
+        }
+      },
+      "PaymentResponse": {
+        "type": "object",
+        "properties": {
+          "paymentId": { "type": "string", "example": "pay_982a17fbc" },
+          "orderId": { "type": "string", "example": "ORDER-98210" },
+          "amount": { "type": "number", "example": 850 },
+          "currency": { "type": "string", "example": "BDT" },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "COMPLETED", "CANCELLED", "EXPIRED", "MANUAL_REVIEW"],
+            "example": "PENDING"
+          },
+          "checkoutUrl": { "type": "string", "example": "https://gateway.paysync.io/checkout?id=pay_982a17fbc" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "StandardResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "data": { "type": "object" },
+          "message": { "type": "string" },
+          "requestId": { "type": "string", "example": "req_1727000000_abc" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "example": "INVALID_REQUEST" },
+              "message": { "type": "string", "example": "Field 'amount' must be a positive number." }
+            }
+          },
+          "requestId": { "type": "string", "example": "req_1727000000_abc" }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": [],
+      "ApiSecretAuth": []
+    }
+  ],
+  "paths": {
+    "/payments/create": {
+      "post": {
+        "summary": "Create Payment Session",
+        "description": "Creates an idempotent checkout session with a hosted PaySync checkout page.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": { "type": "string" },
+            "required": false,
+            "description": "Unique key to ensure safe retry without double charge"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreatePaymentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/StandardResponse" },
+                    {
+                      "properties": {
+                        "data": { "$ref": "#/components/schemas/PaymentResponse" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input parameters",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/{paymentId}": {
+      "get": {
+        "summary": "Retrieve Payment",
+        "description": "Returns full details of an existing payment session.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Payment details retrieved" },
+          "404": { "description": "Payment not found" }
+        }
+      }
+    },
+    "/payments/{paymentId}/status": {
+      "get": {
+        "summary": "Get Payment Status",
+        "description": "Lightweight endpoint designed for status polling.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Payment status" }
+        }
+      }
+    },
+    "/payments/{paymentId}/verify": {
+      "post": {
+        "summary": "Verify TrxID",
+        "description": "Programmatically verifies customer submitted TrxID.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["trxId"],
+                "properties": {
+                  "trxId": { "type": "string", "example": "BAH927XKL1" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Transaction verified and payment completed" },
+          "400": { "description": "Verification failed (amount mismatch, invalid TrxID, expired session)" }
+        }
+      }
+    },
+    "/payments/{paymentId}/cancel": {
+      "post": {
+        "summary": "Cancel Payment",
+        "description": "Cancels a pending payment session.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Payment session cancelled" }
+        }
+      }
+    },
+    "/transactions": {
+      "get": {
+        "summary": "List Transactions",
+        "description": "Lists transactions ingested and verified for the merchant.",
+        "parameters": [
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "default": 50 } },
+          { "in": "query", "name": "provider", "schema": { "type": "string", "enum": ["BKASH", "NAGAD", "ROCKET", "UPAY"] } },
+          { "in": "query", "name": "status", "schema": { "type": "string", "enum": ["CONFIRMED", "UNMATCHED", "REFUNDED", "FRAUD_SUSPECT"] } }
+        ],
+        "responses": {
+          "200": { "description": "Transaction list" }
+        }
+      }
+    },
+    "/merchant/profile": {
+      "get": {
+        "summary": "Merchant Profile",
+        "responses": { "200": { "description": "Merchant profile data" } }
+      }
+    },
+    "/merchant/wallets": {
+      "get": {
+        "summary": "Merchant Wallets",
+        "responses": { "200": { "description": "Active wallets list" } }
+      }
+    },
+    "/webhooks": {
+      "get": {
+        "summary": "Webhook Logs",
+        "responses": { "200": { "description": "Delivery attempts history" } }
+      }
+    },
+    "/webhooks/test": {
+      "post": {
+        "summary": "Send Test Webhook Ping",
+        "responses": { "200": { "description": "Webhook ping result" } }
+      }
+    }
+  }
+}
